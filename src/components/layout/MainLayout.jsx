@@ -1,4 +1,7 @@
+// Atualização do MainLayout.jsx para usar o contexto de autenticação
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import DashboardView from '../dashboard/DashboardView';
@@ -11,44 +14,32 @@ import ScheduleView from '../schedule/ScheduleView';
 import AnalyticsView from '../analytics/AnalyticsView';
 
 const MainLayout = () => {
-  const [activeTab, setActiveTab] = useState('flows');
-  const [apiType, setApiType] = useState('official'); // Pode ser 'official', 'unofficial', 'evolution'
-  const [showFlowEditor, setShowFlowEditor] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [apiType, setApiType] = useState('official');
+  
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+  };
   
   return (
     <div className="flex flex-col h-screen bg-slate-50">
-      <Header />
+      <Header user={user} onLogout={handleLogout} />
       
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         
-
-
-        
         <main className="flex-1 overflow-auto p-6">
-          {activeTab === 'flows' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-800">Fluxos de Recuperação</h2>
-                <button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                  onClick={() => setShowFlowEditor(true)}
-                >
-                  <span>Novo Fluxo</span>
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              </div>
-
-              {!showFlowEditor ? (
-                <FlowsList />
-              ) : (
-                <FlowEditor onClose={() => setShowFlowEditor(false)} />
-              )}
-            </div>
-          )}
-
+          {activeTab === 'dashboard' && <DashboardView userId={user?.id} />}
+          
+          {activeTab === 'flows' && <FlowsList userId={user?.id} />}
+          
           {activeTab === 'connections' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -76,20 +67,18 @@ const MainLayout = () => {
               </div>
 
               {apiType === 'official' ? (
-                <OfficialApiConfig />
+                <OfficialApiConfig userId={user?.id} />
               ) : apiType === 'unofficial' ? (
-                <UnofficialApiConfig />
+                <UnofficialApiConfig userId={user?.id} />
               ) : apiType === 'evolution' ? (
-                <EvolutionApiConfig />
+                <EvolutionApiConfig userId={user?.id} />
               ) : null}
             </div>
           )}
 
-          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'schedule' && <ScheduleView userId={user?.id} />}
 
-          {activeTab === 'schedule' && <ScheduleView />}
-
-          {activeTab === 'analytics' && <AnalyticsView />}
+          {activeTab === 'analytics' && <AnalyticsView userId={user?.id} />}
         </main>
       </div>
     </div>

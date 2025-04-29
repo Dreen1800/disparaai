@@ -1,7 +1,8 @@
+// src/components/layout/Header.jsx
 import React from 'react';
-import { Settings, MessageCircle, Bell } from 'lucide-react';
+import { Settings, Bell, LogOut } from 'lucide-react';
 
-const Header = () => {
+const Header = ({ user, onLogout }) => {
   return (
     <header className="bg-white shadow-sm px-6 py-4">
       <div className="flex items-center justify-between">
@@ -24,8 +25,24 @@ const Header = () => {
           <button className="text-gray-500 hover:text-gray-700">
             <Settings size={20} />
           </button>
-          <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-            JD
+          <div className="relative group">
+            <button className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium cursor-pointer">
+              {user?.profile?.full_name ? user.profile.full_name.substring(0, 2).toUpperCase() : 'U'}
+            </button>
+            
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+              <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
+                <p className="font-medium">{user?.profile?.full_name || 'Usuário'}</p>
+                <p className="text-gray-500 text-xs truncate">{user?.email}</p>
+              </div>
+              <button 
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                onClick={onLogout}
+              >
+                <LogOut size={16} className="mr-2" />
+                <span>Sair</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

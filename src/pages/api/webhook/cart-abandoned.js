@@ -1,6 +1,5 @@
-// src/pages/api/webhook/cart-abandoned.js
+// src/pages/api/webhook/cart-abandoned.js - Adaptado para usar seu schema de banco de dados
 import { supabase } from '../../../lib/supabase';
-import { validateWebhookRequest } from '../../../utils/security';
 
 export default async function handler(req, res) {
   // Permitir apenas método POST
@@ -9,12 +8,26 @@ export default async function handler(req, res) {
   }
   
   try {
-    // Validar o webhook (verifique a assinatura ou token)
-    const isValid = await validateWebhookRequest(req);
-    if (!isValid) {
+    // Validar o token de autenticação do webhook
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
+    const token = authHeader.substring(7); // Remover 'Bearer ' do header
+    
+    // Verificar o token na tabela de usuários ou em uma tabela específica de tokens
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('webhook_token', token)
+      .single();
+    
+    if (userError || !userData) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const userId = userData.id;
     const payload = req.body;
     
     // Validação básica dos dados recebidos
@@ -24,35 +37,34 @@ export default async function handler(req, res) {
     
     // Processar o carrinho abandonado
     const cartData = {
-      user_id: payload.store_user_id, // ID do usuário do Supabase que corresponde à loja
+      user_id: userId,
       customer_name: payload.customer.name || 'Cliente',
       customer_phone: payload.customer.phone,
       cart_value: payload.cart.value,
       cart_items: payload.cart.items || [],
       recovery_status: 'pending',
-      store_id: payload.store_id,
-      external_id: payload.cart.id
+      store_id: payload.store_id || null,
+      external_id: payload.cart.id || null
     };
     
     // Salvar o carrinho abandonado no Supabase
-    const { data, error } = await supabase
+    const { data: cartData, error: cartError } = await supabase
       .from('abandoned_carts')
       .insert([cartData])
       .select();
     
-    if (error) {
-      console.error('Error saving abandoned cart:', error);
+    if (cartError) {
+      console.error('Error saving abandoned cart:', cartError);
       return res.status(500).json({ error: 'Failed to save abandoned cart' });
     }
     
     // Iniciar o processo de recuperação assíncrono
-    // Em um sistema real, você pode usar um job queue como Bull ou similar
-    await startRecoveryProcess(data[0].id);
+    startRecoveryProcess(cartData[0].id, userId);
     
     return res.status(200).json({ 
       success: true, 
       message: 'Abandoned cart received and processing started',
-      cart_id: data[0].id
+      cart_id: cartData[0].id
     });
     
   } catch (error) {
@@ -63,40 +75,26 @@ export default async function handler(req, res) {
 
 /**
  * Inicia o processo de recuperação de um carrinho abandonado
- * Em um sistema real, este processo seria executado em background
  */
-async function startRecoveryProcess(cartId) {
+async function startRecoveryProcess(cartId, userId) {
   try {
-    // 1. Obter informações do carrinho
-    const { data: cart, error: cartError } = await supabase
-      .from('abandoned_carts')
-      .select(`
-        *,
-        users:user_id (id)
-      `)
-      .eq('id', cartId)
-      .single();
-    
-    if (cartError) throw cartError;
-    
-    // 2. Buscar o fluxo de recuperação ativo para o usuário
+    // 1. Buscar um fluxo de recuperação ativo
     const { data: flows, error: flowError } = await supabase
       .from('recovery_flows')
       .select('*')
-      .eq('user_id', cart.user_id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1);
     
-    if (flowError) throw flowError;
-    if (!flows || flows.length === 0) {
-      console.log(`No active recovery flow found for user ${cart.user_id}`);
+    if (flowError || !flows || flows.length === 0) {
+      console.log(`No active recovery flow found for user ${userId}`);
       return;
     }
     
     const flow = flows[0];
     
-    // 3. Buscar a primeira mensagem do fluxo
+    // 2. Buscar a primeira mensagem do fluxo
     const { data: messages, error: msgError } = await supabase
       .from('flow_messages')
       .select('*')
@@ -104,60 +102,65 @@ async function startRecoveryProcess(cartId) {
       .order('sequence_order', { ascending: true })
       .limit(1);
     
-    if (msgError) throw msgError;
-    if (!messages || messages.length === 0) {
+    if (msgError || !messages || messages.length === 0) {
       console.log(`No messages found for flow ${flow.id}`);
       return;
     }
     
     const firstMessage = messages[0];
     
-    // 4. Buscar uma instância WhatsApp disponível
+    // 3. Buscar uma instância WhatsApp disponível
     const { data: instances, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select(`
         *,
-        connections:connection_id (
-          id,
-          user_id,
-          type
-        )
+        whatsapp_connections!inner(*)
       `)
-      .eq('connections.user_id', cart.user_id)
+      .eq('whatsapp_connections.user_id', userId)
       .eq('status', 'connected')
       .limit(1);
     
-    if (instanceError) throw instanceError;
-    if (!instances || instances.length === 0) {
-      console.log(`No active WhatsApp instance found for user ${cart.user_id}`);
+    if (instanceError || !instances || instances.length === 0) {
+      console.log(`No active WhatsApp instance found for user ${userId}`);
       return;
     }
     
     const instance = instances[0];
     
-    // 5. Programar o envio da primeira mensagem
-    // Calcular o horário de envio (agora + delay configurado)
+    // 4. Obter informações do carrinho
+    const { data: cart, error: cartError } = await supabase
+      .from('abandoned_carts')
+      .select('*')
+      .eq('id', cartId)
+      .single();
+    
+    if (cartError) {
+      console.error('Error fetching cart data:', cartError);
+      return;
+    }
+    
+    // 5. Calcular o horário de envio (agora + delay configurado)
     const now = new Date();
     const scheduledTime = new Date(now.getTime() + (firstMessage.delay_hours * 60 * 60 * 1000));
     
-    // Personalizar o conteúdo da mensagem
+    // 6. Personalizar o conteúdo da mensagem
     const personalizedContent = personalizeMessage(
       firstMessage.content,
       {
         nome: cart.customer_name,
         valor: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cart.cart_value),
-        produtos: getProductsText(cart.cart_items),
+        produto: getProductsText(cart.cart_items),
         link_carrinho: `https://loja.com.br/carrinho?id=${cart.external_id}`
       }
     );
     
-    // Criar o registro da mensagem agendada
+    // 7. Criar o registro da mensagem agendada
     const { data: sentMessage, error: sentError } = await supabase
       .from('sent_messages')
       .insert([{
         flow_id: flow.id,
         flow_message_id: firstMessage.id,
-        cart_id: cart.id,
+        cart_id: cartId,
         instance_id: instance.id,
         status: 'scheduled',
         content: personalizedContent,
@@ -165,20 +168,29 @@ async function startRecoveryProcess(cartId) {
       }])
       .select();
     
-    if (sentError) throw sentError;
+    if (sentError) {
+      console.error('Error scheduling message:', sentError);
+      return;
+    }
     
-    // 6. Atualizar o status do carrinho
+    // 8. Atualizar o status do carrinho
     const { error: updateError } = await supabase
       .from('abandoned_carts')
-      .update({ recovery_status: 'in_progress' })
-      .eq('id', cart.id);
+      .update({ 
+        recovery_status: 'in_progress',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', cartId);
     
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating cart status:', updateError);
+      return;
+    }
     
     console.log(`Recovery process started for cart ${cartId}. First message scheduled for ${scheduledTime.toISOString()}`);
     
   } catch (error) {
-    console.error('Error starting recovery process:', error);
+    console.error('Error in recovery process:', error);
   }
 }
 
@@ -203,5 +215,16 @@ function getProductsText(items) {
     return '';
   }
   
-  return items.map(item => `${item.name} (${item.quantity}x)`).join(', ');
+  if (items.length === 1) {
+    return items[0].name || 'Produto';
+  }
+  
+  const productNames = items.map(item => item.name).filter(Boolean);
+  
+  if (productNames.length <= 2) {
+    return productNames.join(' e ');
+  } else {
+    const lastProduct = productNames.pop();
+    return `${productNames.join(', ')} e ${lastProduct}`;
+  }
 }
