@@ -6,12 +6,13 @@ import FlowsList from '../flows/FlowsList';
 import FlowEditor from '../flows/FlowEditor';
 import OfficialApiConfig from '../connections/OfficialApiConfig';
 import UnofficialApiConfig from '../connections/UnofficialApiConfig';
+import EvolutionApiConfig from '../connections/EvolutionApiConfig';
 import ScheduleView from '../schedule/ScheduleView';
 import AnalyticsView from '../analytics/AnalyticsView';
 
 const MainLayout = () => {
   const [activeTab, setActiveTab] = useState('flows');
-  const [apiType, setApiType] = useState('official');
+  const [apiType, setApiType] = useState('official'); // Pode ser 'official', 'unofficial', 'evolution'
   const [showFlowEditor, setShowFlowEditor] = useState(false);
   
   return (
@@ -62,14 +63,22 @@ const MainLayout = () => {
                   >
                     API Não Oficial
                   </button>
+                  <button 
+                    className={`px-4 py-2 rounded-lg border ${apiType === 'evolution' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                    onClick={() => setApiType('evolution')}
+                  >
+                    API Evolution
+                  </button>
                 </div>
               </div>
 
               {apiType === 'official' ? (
                 <OfficialApiConfig />
-              ) : (
+              ) : apiType === 'unofficial' ? (
                 <UnofficialApiConfig />
-              )}
+              ) : apiType === 'evolution' ? (
+                <EvolutionApiConfig />
+              ) : null}
             </div>
           )}
 
