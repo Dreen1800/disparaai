@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+// src/components/flows/FlowsList.jsx
+import React, { useState, useEffect } from 'react';
 import { Clock, X, ChevronDown, Send, Plus, Edit, Copy, MoreHorizontal, ChevronRight, ArrowRight } from 'lucide-react';
+
+// Importe o cliente do Supabase - COMENTE esta linha se ainda não configurou o Supabase
+// import { supabase } from '../../lib/supabase';
 
 const FlowsView = () => {
   const [showFlowEditor, setShowFlowEditor] = useState(false);
   const [selectedFlow, setSelectedFlow] = useState(null);
   
-  // Dados de exemplo para a lista de fluxos
+  // MANTENHA este array de dados de exemplo enquanto estiver implementando o Supabase
+  // Depois você pode substituir por dados do banco
   const flows = [
     { id: 1, name: 'Carrinho Abandonado - Primeira Compra', status: 'active', messages: 3, conversions: '24%' },
     { id: 2, name: 'Carrinho Abandonado - Cliente Fidelizado', status: 'active', messages: 2, conversions: '38%' },
@@ -13,10 +18,51 @@ const FlowsView = () => {
     { id: 4, name: 'Upsell Produto Complementar', status: 'draft', messages: 2, conversions: '0%' }
   ];
 
+  // Mais tarde você pode descomentar este useEffect para buscar dados do Supabase
+  /*
+  useEffect(() => {
+    const fetchFlows = async () => {
+      try {
+        // Verificar se o Supabase está configurado
+        if (typeof supabase === 'undefined') {
+          console.log('Supabase não está configurado ainda');
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from('recovery_flows')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          console.error('Erro ao buscar fluxos:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          // Atualizar o estado com os dados do Supabase quando estiver pronto
+          // setFlows(data);
+          console.log('Dados do Supabase:', data);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar dados:', err);
+      }
+    };
+    
+    fetchFlows();
+  }, []);
+  */
+
   // Adicionar novo fluxo ou editar existente
   const handleAddOrEditFlow = (flow = null) => {
     setSelectedFlow(flow);
     setShowFlowEditor(true);
+  };
+  
+  // Função para duplicar fluxo (a ser implementada com Supabase)
+  const handleDuplicateFlow = (flow) => {
+    console.log('Duplicando fluxo:', flow);
+    // Aqui você implementará a duplicação com Supabase no futuro
   };
   
   return (
@@ -102,7 +148,10 @@ const FlowsView = () => {
                         <Edit size={16} className="mr-1" />
                         <span>Editar</span>
                       </button>
-                      <button className="text-gray-600 hover:text-gray-900 flex items-center">
+                      <button 
+                        className="text-gray-600 hover:text-gray-900 flex items-center"
+                        onClick={() => handleDuplicateFlow(flow)}
+                      >
                         <Copy size={16} className="mr-1" />
                         <span>Duplicar</span>
                       </button>
@@ -116,7 +165,7 @@ const FlowsView = () => {
           <div className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
             <div className="flex items-center">
               <span className="text-sm text-gray-700">
-                Mostrando <span className="font-medium">4</span> fluxos
+                Mostrando <span className="font-medium">{flows.length}</span> fluxos
               </span>
             </div>
             <div className="flex space-x-2">
@@ -155,6 +204,18 @@ const FlowEditor = ({ onClose, flow = null }) => {
     setSteps(steps.filter(step => step.id !== id));
   };
   
+  // Função para salvar fluxo (a ser implementada com Supabase)
+  const handleSave = () => {
+    console.log('Salvando fluxo:', {
+      name: flowName,
+      steps: steps
+    });
+    
+    // Aqui você implementará a gravação com Supabase no futuro
+    // Por enquanto apenas fecha o editor
+    onClose();
+  };
+  
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -174,7 +235,10 @@ const FlowEditor = ({ onClose, flow = null }) => {
             <X size={16} className="mr-2" />
             <span>Cancelar</span>
           </button>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+          <button 
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
+            onClick={handleSave}
+          >
             <span>Salvar Fluxo</span>
             <ArrowRight size={16} className="ml-2" />
           </button>

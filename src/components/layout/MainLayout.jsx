@@ -22,6 +22,9 @@ const MainLayout = () => {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         
+
+
+        
         <main className="flex-1 overflow-auto p-6">
           {activeTab === 'flows' && (
             <div className="space-y-6">
