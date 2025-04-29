@@ -19,8 +19,7 @@ const FlowsView = () => {
   ];
 
   // Mais tarde você pode descomentar este useEffect para buscar dados do Supabase
-  /*
-  useEffect(() => {
+   useEffect(() => {
     const fetchFlows = async () => {
       try {
         // Verificar se o Supabase está configurado
@@ -51,7 +50,6 @@ const FlowsView = () => {
     
     fetchFlows();
   }, []);
-  */
 
   // Adicionar novo fluxo ou editar existente
   const handleAddOrEditFlow = (flow = null) => {

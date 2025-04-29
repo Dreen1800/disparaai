@@ -1,4 +1,3 @@
-// Substitua o conteúdo do arquivo Header.jsx por:
 import React from 'react';
 import { Settings, MessageCircle, Bell } from 'lucide-react';
 
@@ -13,7 +12,9 @@ const Header = () => {
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-800">Disparar<span className="text-blue-600 font-bold">Pro</span></h1>
+          <h1 className="text-xl font-semibold text-gray-800">
+            Disparar<span className="text-blue-600 font-bold">Pro</span>
+          </h1>
         </div>
         <div className="flex items-center space-x-5">
           <button className="text-gray-500 hover:text-gray-700 relative">
